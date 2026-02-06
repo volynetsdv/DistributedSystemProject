@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # 1. Load Balancer (YARP)
+  reverse-proxy:
+    image: my-yarp-proxy:latest # YARP project
+    ports:
+      - "8080:80"
+    depends_on:
+      - api-node-1
+      - api-node-2
+    networks:
+      - cloud-network
+
+  # 2. Web Servers (.NET API)
+  api-node-1:
+    image: my-dotnet-api:latest
+    environment:
+      - DB_CONNECTION=Host=db-master;Database=app_db;Username=user;Password=pass
+      - STORAGE_ENDPOINT=http://minio:9000
+    networks:
+      - cloud-network
+
+  api-node-2:
+    image: my-dotnet-api:latest
+    environment:
+      - DB_CONNECTION=Host=db-master;Database=app_db;Username=user;Password=pass
+      - STORAGE_ENDPOINT=http://minio:9000
+    networks:
+      - cloud-network
+
+  # 3. Database Cluster (PostgreSQL Master/Slave)
+  db-master:
+    image: bitnami/postgresql:latest
+    environment:
+      - POSTGRESQL_REPLICATION_MODE=master
+      - POSTGRESQL_REPLICATION_USER=repl_user
+      - POSTGRESQL_REPLICATION_PASSWORD=repl_pass
+      - POSTGRESQL_USERNAME=user
+      - POSTGRESQL_PASSWORD=pass
+      - POSTGRESQL_DATABASE=app_db
+    networks:
+      - cloud-network
+
+  db-slave:
+    image: bitnami/postgresql:latest
+    depends_on:
+      - db-master
+    environment:
+      - POSTGRESQL_REPLICATION_MODE=slave
+      - POSTGRESQL_MASTER_HOST=db-master
+      - POSTGRESQL_MASTER_PORT_NUMBER=5432
+      - POSTGRESQL_REPLICATION_USER=repl_user
+      - POSTGRESQL_REPLICATION_PASSWORD=repl_pass
+      - POSTGRESQL_PASSWORD=pass
+    networks:
+      - cloud-network
+
+  # 4. Shared Storage (MinIO - S3)
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9001:9001" # Консоль для вас
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password123
+    volumes:
+      - minio-data:/data
+    networks:
+      - cloud-network
+
+networks:
+  cloud-network:
+    driver: bridge
+
+volumes:
+  minio-data:
