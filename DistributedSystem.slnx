@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Gateway.Yarp/YARP.csproj" />
+  <Project Path="src/CMS.Service/CMS.Service.csproj" />
+</Solution>

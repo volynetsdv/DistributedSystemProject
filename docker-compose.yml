@@ -1,0 +1,34 @@
+services:
+  # VM 1: Gateway + UI
+  gateway:
+    build:
+      context: .
+      dockerfile: src/Gateway.Yarp/Dockerfile
+    ports:
+      - "80:80"
+    networks:
+      - cloud-network
+
+  # VM 2: App Node 1
+  cms-1:
+    build:
+      context: .
+      dockerfile: src/CMS.Service/Dockerfile
+    environment:
+      - NODE_ID=CMS_SERVER_NODE_01
+    networks:
+      - cloud-network
+
+  # VM 3: App Node 2
+  cms-2:
+    build:
+      context: .
+      dockerfile: src/CMS.Service/Dockerfile
+    environment:
+      - NODE_ID=CMS_SERVER_NODE_02
+    networks:
+      - cloud-network
+
+networks:
+  cloud-network:
+    driver: bridge
