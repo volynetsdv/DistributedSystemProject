@@ -36,4 +36,4 @@ WORKDIR /app
 COPY --from=dotnet-build /out .
 # Важливо: порт 80 для HTTP або 443 для HTTPS
 EXPOSE 80
-ENTRYPOINT ["dotnet", "Gateway.Yarp.dll"]
+ENTRYPOINT ["dotnet", "YARP.dll"]

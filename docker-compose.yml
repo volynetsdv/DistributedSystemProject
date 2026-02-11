@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: src/Gateway.Yarp/Dockerfile
     ports:
-      - "80:80"
+      - "80:8080"
     networks:
       - cloud-network
 
