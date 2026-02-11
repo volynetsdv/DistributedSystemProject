@@ -1,41 +1,37 @@
+using Microsoft.AspNetCore.HttpLogging;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// 1. Додаємо контролери
+builder.Services.AddControllers();
+
+// 2. Налаштовуємо Swagger (корисно для тестування мікросервісів)
+builder.Services.AddEndpointsApiExplorer();
+// builder.Services.AddSwaggerGen();
+
+// 3. Додаємо HttpLogging, щоб бачити вхідні запити в консолі Docker
+builder.Services.AddHttpLogging(logging =>
+{
+    logging.LoggingFields = HttpLoggingFields.All;
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+// 4. Swagger додамо пізніше
+// app.UseSwagger();
+// app.UseSwaggerUI();
 
-app.UseHttpsRedirection();
+// 5. HttpLogging Middleware
+app.UseHttpLogging();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+// 6. Маршрутизація
+app.UseAuthorization();
+app.MapControllers();
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+// 7. Тестовий ендпоінт прямо тут (мінімалістичний спосіб перевірки)
+app.MapGet("/health", () => Results.Ok(new { 
+    Status = "Healthy", 
+    Node = Environment.GetEnvironmentVariable("NODE_ID") ?? "Unknown" 
+}));
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
