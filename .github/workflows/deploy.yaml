@@ -1,0 +1,32 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: [ "main" ] # Спрацьовує при пуші в main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Копіюємо код із репозиторію на ранер
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Логінимося в Azure (використовуючи секрети)
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 3. Збираємо образи прямо в Azure Container Registry
+      - name: Build and Push to ACR
+        run: |
+          az acr build --registry ${{ secrets.ACR_NAME }} --image cms-service:${{ github.sha }} .
+          az acr build --registry ${{ secrets.ACR_NAME }} --image gateway:${{ github.sha }} -f src/Gateway.Yarp/Dockerfile .
+
+      # 4. Оновлюємо Container Apps новими образами
+      - name: Update Container Apps
+        run: |
+          az containerapp update --name cms-app --resource-group DistributedSystem-RG --image ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:${{ github.sha }}
+          az containerapp update --name gateway-app --resource-group DistributedSystem-RG --image ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }}
