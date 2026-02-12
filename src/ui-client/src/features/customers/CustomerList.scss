@@ -1,0 +1,36 @@
+.customer-card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin-top: 1rem;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 1rem;
+
+    h3 { margin: 0; color: $dark-bg; }
+  }
+
+  &__content {
+    .status-badge {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      background: #f0f0f0;
+
+      // Динамічні кольори для різних нод
+      &.cms-server-node-01 { color: #fff; background: $primary-color; }
+      &.cms-server-node-02 { color: #fff; background: $success-color; }
+    }
+
+    .message { font-size: 1.1rem; margin: 0.5rem 0; }
+    .timestamp { font-size: 0.8rem; color: #888; }
+  }
+}
