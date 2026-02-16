@@ -7,7 +7,7 @@ ACR_NAME="dvolynetscmsregistry" # Унікальне ім'я для Azure Contai
 ENVIRONMENT_NAME="cms-env"
 
 # спробуємо додати реєстрацію провайдера згідно інструкції https://learn.microsoft.com/en-us/azure/azure-resource-manager/troubleshooting/error-register-resource-provider?tabs=azure-cli
-az provider register -n Microsoft.ContainerRegistry
+az provider register -n Microsoft.ContainerRegistry --wait
 az provider register -n Microsoft.OperationalInsights --wait
 
 # 1. Створення групи ресурсів

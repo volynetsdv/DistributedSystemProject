@@ -23,7 +23,7 @@ jobs:
       # 3. Збираємо образи прямо в Azure Container Registry
       - name: Build and Push to ACR
         run: |
-          az acr build --registry ${{ secrets.ACR_NAME }} --image cms-service:${{ github.sha }} .
+          az acr build --registry ${{ secrets.ACR_NAME }} --image cms-service:${{ github.sha }} -f src/CMS.Service/Dockerfile .
           az acr build --registry ${{ secrets.ACR_NAME }} --image gateway:${{ github.sha }} -f src/Gateway.Yarp/Dockerfile .
 
       # 4. Оновлюємо Container Apps новими образами
