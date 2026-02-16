@@ -9,18 +9,22 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      # 1. Копіюємо код із репозиторію на ранер
+      # Копіюємо код із репозиторію на ранер
       # https://docs.github.com/en/actions
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Логінимося в Azure (використовуючи секрети)
+      # Логінимося в Azure (використовуючи секрети)
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      # Логінимося в ACR, щоб мати змогу пушити образи
+      - name: ACR Login
+        run: az acr login --name ${{ secrets.ACR_NAME }}
 
-      # 3. Azure Container Registry не дав зібрати образи через студентську підписку, 
+      # Azure Container Registry не дав зібрати образи через студентську підписку, 
       # тому спробуємо збирати образи в Github і пушити їх в ACR
       - name: Build on Github and Push to ACR
         run: |
@@ -29,7 +33,7 @@ jobs:
           docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }} -f src/Gateway.Yarp/Dockerfile .
           docker push ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }}
 
-      # 4. Оновлюємо Container Apps новими образами
+      # Оновлюємо Container Apps новими образами
       - name: Update Container Apps
         run: |
           az containerapp update --name cms-app --resource-group DistributedSystem-RG --image ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:${{ github.sha }}
