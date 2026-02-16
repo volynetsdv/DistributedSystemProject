@@ -36,5 +36,5 @@ jobs:
       # Оновлюємо Container Apps новими образами
       - name: Update Container Apps
         run: |
-          az containerapp update --name cms-app --resource-group DistributedSystem-RG --image ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:${{ github.sha }}
-          az containerapp update --name gateway-app --resource-group DistributedSystem-RG --image ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }}
+          az containerapp update --name cms-service --resource-group DistributedSystem-RG --image ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:${{ github.sha }}
+          az containerapp update --name gateway --resource-group DistributedSystem-RG --image ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }}
