@@ -20,11 +20,14 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 3. Збираємо образи прямо в Azure Container Registry
-      - name: Build and Push to ACR
+      # 3. Azure Container Registry не дав зібрати образи через студентську підписку, 
+      # тому спробуємо збирати образи в Github і пушити їх в ACR
+      - name: Build on Github and Push to ACR
         run: |
-          az acr build --registry ${{ secrets.ACR_NAME }} --image cms-service:${{ github.sha }} -f src/CMS.Service/Dockerfile .
-          az acr build --registry ${{ secrets.ACR_NAME }} --image gateway:${{ github.sha }} -f src/Gateway.Yarp/Dockerfile .
+          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:${{ github.sha }} -f src/CMS.Service/Dockerfile .
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:${{ github.sha }}
+          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }} -f src/Gateway.Yarp/Dockerfile .
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }}
 
       # 4. Оновлюємо Container Apps новими образами
       - name: Update Container Apps
