@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
+import { fileURLToPath } from 'url'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -24,8 +24,8 @@ export default defineConfig({
     preprocessorOptions: {
       scss: {
         // Автоматично імпортуємо змінні у всі SCSS файли
-        // Використовуємо функцію path.resolve для створення абсолютного шляху, щоб уникнути проблем з контейнерами
-        additionalData: `@use "${path.resolve(__dirname, 'src/assets/styles/_variables.scss').replace(/\\/g, '/')}";`, 
+        // Через path.resolve виникла проблема з Docker, тому спробуємо інакше
+        additionalData: `@use "${fileURLToPath(new URL('./src/assets/styles/_variables.scss', import.meta.url))}" as *;\n`, 
       },
     },
   },
