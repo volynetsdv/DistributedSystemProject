@@ -9,6 +9,7 @@ ENVIRONMENT_NAME="cms-env"
 # спробуємо додати реєстрацію провайдера згідно інструкції https://learn.microsoft.com/en-us/azure/azure-resource-manager/troubleshooting/error-register-resource-provider?tabs=azure-cli
 az provider register -n Microsoft.ContainerRegistry --wait
 az provider register -n Microsoft.OperationalInsights --wait
+az provider register -n Microsoft.App --wait # цей провайдер зареєстрований в поточному RG, але на всяк випадок нехай буде, раптом доведеться перестворювати RG
 
 # 1. Створення групи ресурсів
 az group create --name $RESOURCE_GROUP --location $LOCATION
@@ -16,31 +17,52 @@ az group create --name $RESOURCE_GROUP --location $LOCATION
 # 2. Створення Azure Container Registry (ACR)
 az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Basic
 
-# 3. Логін в ACR
-az acr login --name $ACR_NAME
-
-# 4. Збірка та завантаження образів прямо в Azure
-# Azure сам збирає образи з Dockerfile
-az acr build --registry $ACR_NAME --image cms-service:latest -f src/CMS.Service/Dockerfile .
-az acr build --registry $ACR_NAME --image gateway:latest -f src/Gateway.Yarp/Dockerfile .
+ACR_ID=$(az acr show --name $ACR_NAME --query id -o tsv)
 
 # 5. Створення Container App Environment
 az containerapp env create --name $ENVIRONMENT_NAME --resource-group $RESOURCE_GROUP --location $LOCATION
 
-# 6. Деплой двух реплік CMS Service
-az containerapp create \
-  --name cms-service \
-  --resource-group $RESOURCE_GROUP \
-  --environment $ENVIRONMENT_NAME \
-  --image "$ACR_NAME.azurecr.io/cms-service:latest" \
-  --min-replicas 2 --max-replicas 2 \
-  --ingress internal --target-port 8080
+setup_app() {
+    local NAME=$1
+    local INGRESS=$2
+    local MIN_REPLICAS=$3
+    local MAX_REPLICAS=$4
 
-# 7. Деплой Gateway 
-az containerapp create \
-  --name gateway \
-  --resource-group $RESOURCE_GROUP \
-  --environment $ENVIRONMENT_NAME \
-  --image "$ACR_NAME.azurecr.io/gateway:latest" \
-  --min-replicas 1 --max-replicas 1 \
-  --ingress external --target-port 8080
+    echo "--- Створення $NAME ---"
+    
+    # Створюємо застосунок з публічного образу
+    az containerapp create \
+        --name $NAME \
+        --resource-group $RESOURCE_GROUP \
+        --environment $ENVIRONMENT_NAME \
+        --image "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" \
+        --target-port 8080 \
+        --ingress $INGRESS \
+        --min-replicas $MIN_REPLICAS \
+        --max-replicas $MAX_REPLICAS
+
+    # Вмикаємо identity
+    az containerapp identity assign --name $NAME -g $RESOURCE_GROUP --system-assigned
+
+    # Отримуємо ID identity
+    PRINCIPAL_ID=$(az containerapp show --name $NAME -g $RESOURCE_GROUP --query identity.principalId -o tsv)
+
+    # Даємо права на читання з ACR
+    az role assignment create \
+        --assignee $PRINCIPAL_ID \
+        --role AcrPull \
+        --scope $ACR_ID
+
+    # Кажемо застосунку використовувати Identity для доступу до ACR
+    az containerapp registry set \
+        --name $NAME \
+        --resource-group $RESOURCE_GROUP \
+        --server "$ACR_NAME.azurecr.io" \
+        --identity system
+}
+
+setup_app "cms-service" "internal" 2 2
+setup_app "gateway" "external" 1 1
+
+URL=$(az containerapp show --name gateway --resource-group $RESOURCE_GROUP --query properties.configuration.ingress.fqdn -o tsv)
+echo "URL сторінки: https://$URL"
