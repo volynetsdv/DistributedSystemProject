@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Змінні
-RESOURCE_GROUP="DistributedSystem-RG" # Resource Group я створював вручну, тому сюди переношу створене ім'я
+RESOURCE_GROUP="DistributedSystem-RG" # наразі Resource Group я створював вручну, тому сюди переношу створене ім'я
 LOCATION="germanywestcentral" # https://learn.microsoft.com/en-us/azure/reliability/regions-list
 ACR_NAME="dvolynetscmsregistry" # Унікальне ім'я для Azure Container Registry
 ENVIRONMENT_NAME="cms-env"
