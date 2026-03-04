@@ -44,6 +44,8 @@ setup_app() {
     # Вмикаємо identity
     az containerapp identity assign --name $NAME -g $RESOURCE_GROUP --system-assigned
 
+    sleep 10 # Чекаємо, поки Identity буде готова
+    
     # Отримуємо ID identity
     PRINCIPAL_ID=$(az containerapp show --name $NAME -g $RESOURCE_GROUP --query identity.principalId -o tsv)
 
