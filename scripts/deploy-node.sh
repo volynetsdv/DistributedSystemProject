@@ -61,6 +61,13 @@ setup_app() {
         --resource-group $RESOURCE_GROUP \
         --server "$ACR_NAME.azurecr.io" \
         --identity system
+
+    # створюємо унікальне ім'я для Storage Account, бо воно має бути глобально унікальним
+    STORAGE_ACC="cmsstorage$(date +%s)"
+    az storage account create --name $STORAGE_ACC --resource-group $RESOURCE_GROUP --location $LOCATION --sku Standard_LRS
+
+    # Створення контейнеру для файлів
+    az storage container create --name uploads --account-name $STORAGE_ACC
 }
 
 setup_app "cms-service" "internal" 2 2

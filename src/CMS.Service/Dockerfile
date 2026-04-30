@@ -26,6 +26,12 @@ RUN dotnet publish -c Release -o /out
 
 # --- ЕТАП 2: Фінальний образ (Runtime) ---
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
+
+RUN apt-get update && apt-get install -y \
+    libgssapi-krb5-2 \
+    libicu-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Копіюємо тільки результат збірки

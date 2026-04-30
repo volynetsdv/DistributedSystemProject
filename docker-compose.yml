@@ -29,6 +29,73 @@ services:
     networks:
       - cloud-network
 
+  # Master Node
+  db-master:
+    image: postgres:16-alpine
+    container_name: db-master
+    environment:
+      - POSTGRES_USER=cms_user
+      - POSTGRES_PASSWORD=cms_password
+      - POSTGRES_DB=cms_db
+    command: |
+      postgres 
+      -c wal_level=replica 
+      -c max_wal_senders=10 
+      -c max_replication_slots=10
+      -c "listen_addresses=*"
+    volumes:
+      - ./scripts/init-db:/docker-entrypoint-initdb.d
+    networks:
+      - cloud-network
+
+  # Slave Node (Read-Only)
+  db-slave:
+    image: postgres:16-alpine
+    container_name: db-slave
+    depends_on:
+      - db-master
+    environment:
+      - POSTGRES_PASSWORD=cms_password
+      - PGPASSFILE=/var/lib/postgresql/.pgpass
+    # Ця команда автоматично робить бекап з майстра при старті та вмикає режим Standby:
+    entrypoint: >
+      sh -c "
+      echo 'db-master:5432:*:cms_user:cms_password' > /var/lib/postgresql/.pgpass &&
+      chmod 0600 /var/lib/postgresql/.pgpass &&
+      chown postgres:postgres /var/lib/postgresql/.pgpass &&
+      if [ ! -s /var/lib/postgresql/data/PG_VERSION ]; then
+        rm -rf /var/lib/postgresql/data/*;
+        until pg_basebackup --pgdata=/var/lib/postgresql/data -R --host=db-master --port=5432 --username=cms_user --progress --verbose; do
+          echo 'Waiting for master...' && sleep 1;
+        done;
+        echo 'Backup done, fixing permissions...';
+        chown -R postgres:postgres /var/lib/postgresql/data;
+        chmod 0700 /var/lib/postgresql/data;
+      fi;
+      exec su-exec postgres postgres"
+    networks:
+      - cloud-network
+
+  # S3 Storage (MinIO)
+  storage:
+    image: minio/minio:latest
+    container_name: minio
+    profiles: ["storage-infra"]
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password123
+    ports:
+      - "9000:9000" # API
+      - "9001:9001" # Console
+    volumes:
+      - minio_data:/data
+    networks:
+      - cloud-network
+
+volumes:
+  minio_data:
+
 networks:
   cloud-network:
     driver: bridge
