@@ -12,29 +12,36 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddDbContext<ReadOnlyDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("ReplicaDb")));
 
-// Додаємо контролери
+// Реєстрація сервісу для роботи з файлами:
+// - Azure Blob Storage (для Azure / production)
+// - MinIO S3 (для локальної розробки через docker-compose)
+var azureBlobConnectionString = builder.Configuration["Azure:BlobStorage:ConnectionString"];
+if (!string.IsNullOrEmpty(azureBlobConnectionString))
+{
+    builder.Services.AddSingleton<IFileService, AzureBlobFileService>();
+}
+else
+{
+    var s3Options = builder.Configuration.GetSection("S3");
+    builder.Services.AddSingleton<IAmazonS3>(_ => new AmazonS3Client(
+        s3Options["AccessKey"],
+        s3Options["SecretKey"],
+        new AmazonS3Config
+        {
+            ServiceURL = s3Options["ServiceURL"],
+            ForcePathStyle = bool.Parse(s3Options["ForcePathStyle"] ?? "true")
+        }));
+    builder.Services.AddSingleton<IFileService, S3FileService>();
+}
+
 builder.Services.AddControllers();
-
-// Реєструємо клієнт для MinIO (S3-сумісне сховище)
-var s3Options = builder.Configuration.GetSection("S3");
-builder.Services.AddSingleton<IAmazonS3>(sp => {
-    var config = new AmazonS3Config {
-        ServiceURL = s3Options["ServiceURL"],
-        ForcePathStyle = bool.Parse(s3Options["ForcePathStyle"] ?? "true")
-    };
-    return new AmazonS3Client(s3Options["AccessKey"], s3Options["SecretKey"], config);
-});
-
-// Налаштовуємо Swagger (корисно для тестування мікросервісів)
 builder.Services.AddEndpointsApiExplorer();
-// builder.Services.AddSwaggerGen();
 
-// Додаємо HttpLogging, щоб бачити вхідні запити в консолі Docker
 builder.Services.AddHttpLogging(logging =>
 {
     logging.LoggingFields = HttpLoggingFields.All;
 });
-// Для хмари
+
 if (string.IsNullOrEmpty(builder.Configuration["NODE_ID"]))
 {
     builder.Configuration["NODE_ID"] = Environment.MachineName;
@@ -42,14 +49,7 @@ if (string.IsNullOrEmpty(builder.Configuration["NODE_ID"]))
 
 var app = builder.Build();
 
-// Swagger додамо пізніше
-// app.UseSwagger();
-// app.UseSwaggerUI();
-
-// HttpLogging Middleware
 app.UseHttpLogging();
-
-// Маршрутизація
 app.UseAuthorization();
 app.MapControllers();
 
@@ -57,20 +57,18 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    
-    int retryCount = 0;
-    bool dbReady = false;
 
     var randomDelay = new Random().Next(3000, 10000);
-    await Task.Delay(randomDelay).WaitAsync(new CancellationToken());
+    await Task.Delay(randomDelay);
 
-    while (!dbReady && retryCount < 10) // 10 спроб
+    int retryCount = 0;
+    while (retryCount < 10)
     {
         try
         {
             await context.Database.MigrateAsync();
-            dbReady = true;
             logger.LogInformation("--> Database is ready and migrated!");
+            break;
         }
         catch (Exception)
         {
@@ -80,11 +78,5 @@ using (var scope = app.Services.CreateScope())
         }
     }
 }
-
-// Тестовий ендпоінт
-// app.MapGet("/health", () => Results.Ok(new { 
-//     Status = "Healthy", 
-//     Node = Environment.GetEnvironmentVariable("NODE_ID") ?? Environment.MachineName,
-// }));
 
 app.Run();
