@@ -12,13 +12,12 @@ terraform {
     }
   }
 
-  # Розкоментуйте та налаштуйте для зберігання стану в Azure Blob Storage:
-  # backend "azurerm" {
-  #   resource_group_name  = "terraform-state-rg"
-  #   storage_account_name = "<globally-unique-name>"
-  #   container_name       = "tfstate"
-  #   key                  = "distributed-system.tfstate"
-  # }
+  backend "azurerm" {
+    resource_group_name  = "DistributedSystem-RG"
+    storage_account_name = "csbvolynetsdv"
+    container_name       = "tfstate"
+    key                  = "distributed-system.tfstate"
+  }
 }
 
 provider "azurerm" {
