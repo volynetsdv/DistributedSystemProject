@@ -119,10 +119,16 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "client_ip" {
 # ─── Container App Environment ────────────────────────────────────────────────
 
 resource "azurerm_container_app_environment" "main" {
-  name                       = "${var.prefix}-env"
-  location                   = azurerm_resource_group.main.location
-  resource_group_name        = azurerm_resource_group.main.name
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  name                       = "cms-env"
+  location                   = "germanywestcentral"
+  resource_group_name        = "DistributedSystem-RG"
+  
+  log_analytics_workspace_id = "/subscriptions/689bd508-a82a-474a-98ef-d17cee981c16/resourceGroups/DistributedSystem-RG/providers/Microsoft.OperationalInsights/workspaces/ТВОЯ_НАЗВА_WORKSPACE"
+
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+  }
 }
 
 # ─── Локальні змінні (connection strings) ────────────────────────────────────
