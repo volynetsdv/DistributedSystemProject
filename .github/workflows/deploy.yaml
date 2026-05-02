@@ -43,6 +43,16 @@ jobs:
         working-directory: infrastructure/terraform
         run: terraform validate
 
+# додаємо в tfstate ресурсну групу створену раніше скриптом 
+      - name: Terraform Import RG
+        working-directory: infrastructure/terraform
+        run: terraform import azurerm_resource_group.main /subscriptions/689bd508-a82a-474a-98ef-d17cee981c16/resourceGroups/DistributedSystem-RG
+        env:
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
       - name: Terraform Apply
         working-directory: infrastructure/terraform
         run: terraform apply -auto-approve -input=false
