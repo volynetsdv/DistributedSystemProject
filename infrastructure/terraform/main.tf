@@ -79,20 +79,19 @@ resource "azurerm_storage_container" "media" {
 # Це дозволяє демонструвати IaC та round-robin балансування без додаткових витрат.
 
 resource "azurerm_postgresql_flexible_server" "main" {
-  name                   = "${var.prefix}-postgres-${random_string.suffix.result}"
+  name                   = "cms-postgres-${var.unique_suffix}"
   resource_group_name    = azurerm_resource_group.main.name
-  location               = azurerm_resource_group.main.location
+  location               = "switzerlandnorth"
   version                = "16"
+  
   administrator_login    = "cms_user"
   administrator_password = var.postgres_admin_password
-  storage_mb             = 32768
-  sku_name               = "B_Standard_B1ms"
-  zone                   = "1"
 
-  authentication {
-    active_directory_auth_enabled = false
-    password_auth_enabled         = true
-  }
+  storage_mb   = 32768 # 32 GB
+  sku_name     = "B_Standard_B2s" 
+
+  backup_retention_days        = 7
+  geo_redundant_backup_enabled = false
 }
 
 resource "azurerm_postgresql_flexible_server_database" "cms_db" {
@@ -108,6 +107,13 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_azure" {
   server_id        = azurerm_postgresql_flexible_server.main.id
   start_ip_address = "0.0.0.0"
   end_ip_address   = "0.0.0.0"
+}
+
+resource "azurerm_postgresql_flexible_server_firewall_rule" "client_ip" {
+  name             = "ClientIP"
+  server_id        = azurerm_postgresql_flexible_server.main.id
+  start_ip_address = "185.143.147.226"
+  end_ip_address   = "185.143.147.226"
 }
 
 # ─── Container App Environment ────────────────────────────────────────────────
