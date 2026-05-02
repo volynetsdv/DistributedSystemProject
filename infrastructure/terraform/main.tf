@@ -40,13 +40,13 @@ resource "azurerm_user_assigned_identity" "cms" {
   resource_group_name = azurerm_resource_group.main.name
 }
 
-resource "azurerm_role_assignment" "acr_pull" {
-  scope                = azurerm_container_registry.main.id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_user_assigned_identity.cms.principal_id
-
-  depends_on = [azurerm_user_assigned_identity.cms]
-}
+# resource "azurerm_role_assignment" "acr_pull" {
+#   scope                = azurerm_container_registry.main.id
+#   role_definition_name = "AcrPull"
+#   principal_id         = azurerm_user_assigned_identity.cms.principal_id
+# 
+#   depends_on = [azurerm_user_assigned_identity.cms]
+# }
 
 # ─── Azure Blob Storage (замінює MinIO) ───────────────────────────────────────
 

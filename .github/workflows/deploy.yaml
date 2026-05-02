@@ -54,10 +54,10 @@ jobs:
           #   azurerm_resource_group.main /subscriptions/${{ env.ARM_SUBSCRIPTION_ID }}/resourceGroups/DistributedSystem-RG || true
 
           # 2. Імпорт Azure Container Registry 
-          terraform import -input=false \
-            -var="acr_name=dvolynetscmsregistry" \
-            -var="postgres_admin_password=${{ secrets.POSTGRES_PASSWORD }}" \
-            azurerm_container_registry.main /subscriptions/689bd508-a82a-474a-98ef-d17cee981c16/resourceGroups/DistributedSystem-RG/providers/Microsoft.ContainerRegistry/registries/dvolynetscmsregistry || true
+          # terraform import -input=false \
+          #   -var="acr_name=dvolynetscmsregistry" \
+          #   -var="postgres_admin_password=${{ secrets.POSTGRES_PASSWORD }}" \
+          #   azurerm_container_registry.main /subscriptions/689bd508-a82a-474a-98ef-d17cee981c16/resourceGroups/DistributedSystem-RG/providers/Microsoft.ContainerRegistry/registries/dvolynetscmsregistry || true
 
           # 3. Імпорт Managed Environment
           # terraform import -input=false \
