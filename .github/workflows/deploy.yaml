@@ -5,35 +5,90 @@ on:
     branches: [ "main" ] # Спрацьовує при пуші в main
 
 jobs:
-  build-and-deploy:
+  # ──────────────────────────────────────────────────────────────────
+  # Job 1: Terraform - provisioning інфраструктури
+  # Потрібні secrets: AZURE_CREDENTIALS, ACR_NAME, POSTGRES_PASSWORD
+  # ──────────────────────────────────────────────────────────────────
+  provision-infrastructure:
+    name: Terraform Apply
     runs-on: ubuntu-latest
-    
+
     steps:
-      # Копіюємо код із репозиторію на ранер
-      # https://docs.github.com/en/actions
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Логінимося в Azure (використовуючи секрети)
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      
-      # Логінимося в ACR, щоб мати змогу пушити образи
+
+      # Витягуємо ARM_* змінні з JSON-секрету AZURE_CREDENTIALS
+      - name: Export ARM credentials for Terraform
+        run: |
+          echo "ARM_CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)" >> $GITHUB_ENV
+          echo "ARM_CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)" >> $GITHUB_ENV
+          echo "ARM_SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .subscriptionId)" >> $GITHUB_ENV
+          echo "ARM_TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .tenantId)" >> $GITHUB_ENV
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.9"
+
+      - name: Terraform Init
+        working-directory: infrastructure/terraform
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: infrastructure/terraform
+        run: terraform validate
+
+      - name: Terraform Apply
+        working-directory: infrastructure/terraform
+        run: terraform apply -auto-approve -input=false
+        env:
+          TF_VAR_acr_name: ${{ secrets.ACR_NAME }}
+          TF_VAR_postgres_admin_password: ${{ secrets.POSTGRES_PASSWORD }}
+
+  # ──────────────────────────────────────────────────────────────────
+  # Job 2: Docker build + push + update Container Apps
+  # ──────────────────────────────────────────────────────────────────
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    needs: provision-infrastructure
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: ACR Login
         run: az acr login --name ${{ secrets.ACR_NAME }}
 
-      # Azure Container Registry не дав зібрати образи через студентську підписку, 
-      # тому спробуємо збирати образи в Github і пушити їх в ACR
-      - name: Build on Github and Push to ACR
+      # Збираємо образи на GitHub Runner і пушимо в ACR
+      - name: Build and Push Images
         run: |
-          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:${{ github.sha }} -f src/CMS.Service/Dockerfile .
-          docker push ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:${{ github.sha }}
-          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }} -f src/Gateway.Yarp/Dockerfile .
-          docker push ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }}
+          docker build \
+            -t ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:${{ github.sha }} \
+            -t ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:latest \
+            -f src/CMS.Service/Dockerfile .
 
-      # Оновлюємо Container Apps новими образами
+          docker build \
+            -t ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }} \
+            -t ${{ secrets.ACR_NAME }}.azurecr.io/gateway:latest \
+            -f src/Gateway.Yarp/Dockerfile .
+
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:${{ github.sha }}
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/cms-service:latest
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }}
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/gateway:latest
+
+      # Оновлюємо Container Apps новими образами (SHA-тег для точного відтворення)
       - name: Update Container Apps
         run: |
           az containerapp update \
@@ -46,3 +101,11 @@ jobs:
             --resource-group DistributedSystem-RG \
             --container-name gateway \
             --image ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }}
+
+      - name: Print App URL
+        run: |
+          URL=$(az containerapp show \
+            --name gateway \
+            --resource-group DistributedSystem-RG \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          echo "Deployed: https://$URL"

@@ -128,10 +128,13 @@ locals {
   placeholder_image = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
 }
 
-# ─── CMS Service — Node 1 ─────────────────────────────────────────────────────
+# ─── CMS Service (2 репліки — Azure балансує між ними) ───────────────────────
+#
+# min_replicas=2 / max_replicas=2 гарантує наявність двох інстансів.
+# NODE_ID не задається явно — кожна репліка використовує своє Environment.MachineName.
 
-resource "azurerm_container_app" "cms1" {
-  name                         = "cms-1"
+resource "azurerm_container_app" "cms" {
+  name                         = "cms-service"
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
@@ -160,8 +163,8 @@ resource "azurerm_container_app" "cms1" {
   }
 
   template {
-    min_replicas = 1
-    max_replicas = 1
+    min_replicas = 2
+    max_replicas = 2
 
     container {
       name   = "cms-service"
@@ -169,93 +172,6 @@ resource "azurerm_container_app" "cms1" {
       cpu    = 0.5
       memory = "1Gi"
 
-      env {
-        name  = "NODE_ID"
-        value = "CMS_SERVER_NODE_01"
-      }
-      env {
-        name        = "ConnectionStrings__MasterDb"
-        secret_name = "master-db"
-      }
-      env {
-        name        = "ConnectionStrings__ReplicaDb"
-        secret_name = "replica-db"
-      }
-      env {
-        name        = "Azure__BlobStorage__ConnectionString"
-        secret_name = "blob-storage"
-      }
-      env {
-        name  = "Azure__BlobStorage__ContainerName"
-        value = azurerm_storage_container.media.name
-      }
-    }
-  }
-
-  ingress {
-    external_enabled = false
-    target_port      = 8080
-    transport        = "http"
-
-    traffic_weight {
-      latest_revision = true
-      percentage      = 100
-    }
-  }
-
-  # CI/CD оновлює образ окремо — Terraform не перезаписує його при повторних apply
-  lifecycle {
-    ignore_changes = [template[0].container[0].image]
-  }
-
-  depends_on = [azurerm_role_assignment.acr_pull]
-}
-
-# ─── CMS Service — Node 2 ─────────────────────────────────────────────────────
-
-resource "azurerm_container_app" "cms2" {
-  name                         = "cms-2"
-  container_app_environment_id = azurerm_container_app_environment.main.id
-  resource_group_name          = azurerm_resource_group.main.name
-  revision_mode                = "Single"
-
-  identity {
-    type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.cms.id]
-  }
-
-  registry {
-    server   = azurerm_container_registry.main.login_server
-    identity = azurerm_user_assigned_identity.cms.id
-  }
-
-  secret {
-    name  = "master-db"
-    value = local.master_conn_str
-  }
-  secret {
-    name  = "replica-db"
-    value = local.replica_conn_str
-  }
-  secret {
-    name  = "blob-storage"
-    value = azurerm_storage_account.main.primary_connection_string
-  }
-
-  template {
-    min_replicas = 1
-    max_replicas = 1
-
-    container {
-      name   = "cms-service"
-      image  = local.placeholder_image
-      cpu    = 0.5
-      memory = "1Gi"
-
-      env {
-        name  = "NODE_ID"
-        value = "CMS_SERVER_NODE_02"
-      }
       env {
         name        = "ConnectionStrings__MasterDb"
         secret_name = "master-db"
@@ -321,15 +237,16 @@ resource "azurerm_container_app" "gateway" {
       cpu    = 0.25
       memory = "0.5Gi"
 
-      # Перевизначаємо YARP-маршрути через env-змінні
-      # В середовищі Container Apps внутрішні app доступні за коротким ім'ям
+      # Перевизначаємо YARP-маршрути через env-змінні.
+      # В Azure — один внутрішній endpoint cms-service; Azure сам балансує між репліками.
+      # Обидва YARP-destinations вказують на один адрес, щоб не змінювати appsettings.json.
       env {
         name  = "ReverseProxy__Clusters__cmsCluster__Destinations__node1__Address"
-        value = "http://cms-1"
+        value = "http://cms-service"
       }
       env {
         name  = "ReverseProxy__Clusters__cmsCluster__Destinations__node2__Address"
-        value = "http://cms-2"
+        value = "http://cms-service"
       }
     }
   }
@@ -351,7 +268,6 @@ resource "azurerm_container_app" "gateway" {
 
   depends_on = [
     azurerm_role_assignment.acr_pull,
-    azurerm_container_app.cms1,
-    azurerm_container_app.cms2,
+    azurerm_container_app.cms,
   ]
 }
