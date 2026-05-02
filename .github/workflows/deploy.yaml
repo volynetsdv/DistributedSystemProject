@@ -44,16 +44,13 @@ jobs:
         run: terraform validate
 
 # додаємо в tfstate ресурсну групу створену раніше скриптом 
-      - name: Export ARM credentials for Import
-        run: |
-          echo "ARM_CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)" >> $GITHUB_ENV
-          echo "ARM_CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)" >> $GITHUB_ENV
-          echo "ARM_SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .subscriptionId)" >> $GITHUB_ENV
-          echo "ARM_TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .tenantId)" >> $GITHUB_ENV
-
       - name: Terraform Import
         working-directory: infrastructure/terraform
-        run: terraform import -input=false azurerm_resource_group.main /subscriptions/689bd508-a82a-474a-98ef-d17cee981c16/resourceGroups/DistributedSystem-RG
+        run: |
+          terraform import -input=false \
+            -var="acr_name=distributedacr${{ env.UNIQUE_SUFFIX }}" \
+            -var="postgres_admin_password=${{ secrets.POSTGRES_PASSWORD }}" \
+            azurerm_resource_group.main /subscriptions/${{ env.ARM_SUBSCRIPTION_ID }}/resourceGroups/DistributedSystem-RG
 # end import
 
       - name: Terraform Apply
