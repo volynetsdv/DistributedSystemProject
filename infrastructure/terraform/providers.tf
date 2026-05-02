@@ -14,7 +14,7 @@ terraform {
 
   backend "azurerm" {
     resource_group_name  = "DistributedSystem-RG"
-    storage_account_name = "csbvolynetsdv"
+    storage_account_name = "tfstoragevolynetsdv"
     container_name       = "tfstate"
     key                  = "distributed-system.tfstate"
   }

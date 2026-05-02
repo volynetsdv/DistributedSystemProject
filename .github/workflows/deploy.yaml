@@ -53,7 +53,7 @@ jobs:
 
       - name: Terraform Import
         working-directory: infrastructure/terraform
-        run: terraform import azurerm_resource_group.main /subscriptions/689bd508-a82a-474a-98ef-d17cee981c16/resourceGroups/DistributedSystem-RG
+        run: terraform import -input=false azurerm_resource_group.main /subscriptions/689bd508-a82a-474a-98ef-d17cee981c16/resourceGroups/DistributedSystem-RG
 # end import
 
       - name: Terraform Apply
