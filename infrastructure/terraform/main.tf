@@ -92,6 +92,12 @@ resource "azurerm_postgresql_flexible_server" "main" {
 
   backup_retention_days        = 7
   geo_redundant_backup_enabled = false
+  lifecycle {
+    ignore_changes = [
+      zone,
+      high_availability[0].standby_availability_zone,
+    ]
+  }
 }
 
 resource "azurerm_postgresql_flexible_server_database" "cms_db" {
@@ -124,7 +130,7 @@ resource "azurerm_container_app_environment" "main" {
   resource_group_name        = "DistributedSystem-RG"
   
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
-  
+
   workload_profile {
     name                  = "Consumption"
     workload_profile_type = "Consumption"
