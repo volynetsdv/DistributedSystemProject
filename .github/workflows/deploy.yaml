@@ -22,6 +22,12 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Register Azure Resource Providers
+        run: |
+          az provider register --namespace Microsoft.DBforPostgreSQL
+          az provider register --namespace Microsoft.App
+          az provider register --namespace Microsoft.OperationalInsights
+
       # Витягуємо ARM_* змінні з JSON-секрету AZURE_CREDENTIALS
       - name: Export ARM credentials for Terraform
         run: |
@@ -47,10 +53,24 @@ jobs:
       - name: Terraform Import
         working-directory: infrastructure/terraform
         run: |
+          # 1. Імпорт групи ресурсів
           terraform import -input=false \
             -var="acr_name=distributedacr${{ env.UNIQUE_SUFFIX }}" \
             -var="postgres_admin_password=${{ secrets.POSTGRES_PASSWORD }}" \
-            azurerm_resource_group.main /subscriptions/${{ env.ARM_SUBSCRIPTION_ID }}/resourceGroups/DistributedSystem-RG
+            azurerm_resource_group.main /subscriptions/${{ env.ARM_SUBSCRIPTION_ID }}/resourceGroups/DistributedSystem-RG || true
+
+          # 2. Імпорт Azure Container Registry 
+          terraform import -input=false \
+            -var="acr_name=distributedacr${{ env.UNIQUE_SUFFIX }}" \
+            -var="postgres_admin_password=${{ secrets.POSTGRES_PASSWORD }}" \
+            azurerm_container_registry.main /subscriptions/${{ env.ARM_SUBSCRIPTION_ID }}/resourceGroups/DistributedSystem-RG/providers/Microsoft.ContainerRegistry/registries/distributedacr${{ env.UNIQUE_SUFFIX }} || true
+
+          # 3. Імпорт Managed Environment
+          terraform import -input=false \
+            -var="acr_name=distributedacr${{ env.UNIQUE_SUFFIX }}" \
+            -var="postgres_admin_password=${{ secrets.POSTGRES_PASSWORD }}" \
+            azurerm_container_app_environment.main /subscriptions/${{ env.ARM_SUBSCRIPTION_ID }}/resourceGroups/DistributedSystem-RG/providers/Microsoft.App/managedEnvironments/cms-env || true
+      
 # end import
 
       - name: Terraform Apply
