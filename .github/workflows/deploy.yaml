@@ -44,14 +44,17 @@ jobs:
         run: terraform validate
 
 # додаємо в tfstate ресурсну групу створену раніше скриптом 
+      - name: Export ARM credentials for Import
+        run: |
+          echo "ARM_CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)" >> $GITHUB_ENV
+          echo "ARM_CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)" >> $GITHUB_ENV
+          echo "ARM_SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .subscriptionId) " >> $GITHUB_ENV
+          echo "ARM_TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .tenantId)" >> $GITHUB_ENV
+
       - name: Terraform Import
         working-directory: infrastructure/terraform
         run: terraform import azurerm_resource_group.main /subscriptions/689bd508-a82a-474a-98ef-d17cee981c16/resourceGroups/DistributedSystem-RG
-        env:
-          ARM_CLIENT_ID: $(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)
-          ARM_CLIENT_SECRET: $(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)
-          ARM_SUBSCRIPTION_ID: $(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .subscriptionId)
-          ARM_TENANT_ID: $(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .tenantId)
+# end import
 
       - name: Terraform Apply
         working-directory: infrastructure/terraform
