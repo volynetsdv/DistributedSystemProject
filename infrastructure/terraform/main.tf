@@ -79,7 +79,7 @@ resource "azurerm_storage_container" "media" {
 # Це дозволяє демонструвати IaC та round-robin балансування без додаткових витрат.
 
 resource "azurerm_postgresql_flexible_server" "main" {
-  name                   = "cms-postgres-${random_string.suffix.result}"
+  name                   = "cms-postgres-sw-${random_string.suffix.result}"
   resource_group_name    = azurerm_resource_group.main.name
   location               = "switzerlandnorth"
   version                = "16"
