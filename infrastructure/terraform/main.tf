@@ -218,7 +218,7 @@ resource "azurerm_container_app" "cms" {
     ignore_changes = [template[0].container[0].image]
   }
 
-  depends_on = [azurerm_role_assignment.acr_pull]
+ # depends_on = [azurerm_role_assignment.acr_pull]
 }
 
 # ─── Gateway (YARP + React UI) ────────────────────────────────────────────────
@@ -279,7 +279,7 @@ resource "azurerm_container_app" "gateway" {
   }
 
   depends_on = [
-    azurerm_role_assignment.acr_pull,
+   # azurerm_role_assignment.acr_pull,
     azurerm_container_app.cms,
   ]
 }
