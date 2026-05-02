@@ -123,8 +123,8 @@ resource "azurerm_container_app_environment" "main" {
   location                   = "germanywestcentral"
   resource_group_name        = "DistributedSystem-RG"
   
-  log_analytics_workspace_id = "/subscriptions/689bd508-a82a-474a-98ef-d17cee981c16/resourceGroups/DistributedSystem-RG/providers/Microsoft.OperationalInsights/workspaces/ТВОЯ_НАЗВА_WORKSPACE"
-
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  
   workload_profile {
     name                  = "Consumption"
     workload_profile_type = "Consumption"
