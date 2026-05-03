@@ -1,4 +1,5 @@
 using Amazon.S3;
+using Azure.Identity;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +12,20 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Реєстрація спеціального інтерфейсу для читання
 builder.Services.AddDbContext<ReadOnlyDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("ReplicaDb")));
+
+var appConfigEndpoint = Environment.GetEnvironmentVariable("AZURE_APP_CONFIG_ENDPOINT");
+if (!string.IsNullOrEmpty(appConfigEndpoint))
+{    builder.Configuration.AddAzureAppConfiguration(options =>
+    {
+        options.Connect(new Uri(appConfigEndpoint), new DefaultAzureCredential())
+               // Налаштовуємо автоматичне оновлення, якщо зміниться список реплік
+               .ConfigureRefresh(refresh =>
+               {
+                   refresh.Register("Database:ReplicaEndpoints", refreshAll: true)
+                          .SetRefreshInterval(TimeSpan.FromMinutes(5));
+               });
+    });
+}
 
 // Реєстрація сервісу для роботи з файлами:
 // - Azure Blob Storage (для Azure / production)

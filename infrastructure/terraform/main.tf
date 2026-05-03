@@ -78,6 +78,14 @@ resource "azurerm_storage_container" "media" {
 # В цьому demo використовується один Burstable-сервер для обох з'єднань.
 # Це дозволяє демонструвати IaC та round-robin балансування без додаткових витрат.
 
+# для можливості горизонтального масштабування
+resource "azurerm_app_configuration_key" "replica_endpoints" {
+  configuration_store_id = azurerm_app_configuration.main.id
+  key                    = "Database:ReplicaEndpoints"
+  # Ми збираємо всі FQDN реплік у один рядок через кому
+  value                  = join(",", azurerm_postgresql_flexible_server.replicas[*].fqdn)
+}
+
 resource "azurerm_postgresql_flexible_server" "main" {
   name                   = "cms-postgres-sw-${random_string.suffix.result}"
   resource_group_name    = azurerm_resource_group.main.name
@@ -99,6 +107,22 @@ resource "azurerm_postgresql_flexible_server" "main" {
     ]
   }
 }
+
+# Цей код можна буде розкоментувати (і можливо підправити) при переході на дорожчий тир, який підтримує реплікацію
+# variable "replica_count" {
+#   default = 2
+# }
+
+# resource "azurerm_postgresql_flexible_server" "replicas" {
+#   count               = var.replica_count
+#   name                = "cms-replica-${count.index}-${random_string.suffix.result}"
+#   location            = azurerm_resource_group.main.location
+#   resource_group_name = azurerm_resource_group.main.name
+#   
+#   create_mode         = "Replica"
+#   source_server_id    = azurerm_postgresql_flexible_server.main.id
+#   sku_name            = "GP_Standard_D2s_v3"
+# }
 
 resource "azurerm_postgresql_flexible_server_database" "cms_db" {
   name      = "cms_db"
@@ -146,16 +170,21 @@ locals {
   placeholder_image = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
 }
 
-# ─── CMS Service (2 репліки — Azure балансує між ними) ───────────────────────
+# ─── CMS Service (2 репліки - Azure балансує між ними) ───────────────────────
 #
 # min_replicas=2 / max_replicas=2 гарантує наявність двох інстансів.
-# NODE_ID не задається явно — кожна репліка використовує своє Environment.MachineName.
+# NODE_ID не задається явно - кожна репліка використовує своє Environment.MachineName.
 
 resource "azurerm_container_app" "cms" {
   name                         = "cms-service"
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
+
+  env {
+        name  = "AZURE_APP_CONFIG_ENDPOINT"
+        value = azurerm_app_configuration.appconf.endpoint
+  }
 
   identity {
     type         = "UserAssigned"
@@ -256,8 +285,8 @@ resource "azurerm_container_app" "gateway" {
       memory = "0.5Gi"
 
       # Перевизначаємо YARP-маршрути через env-змінні.
-      # В Azure — один внутрішній endpoint cms-service; Azure сам балансує між репліками.
-      # Обидва YARP-destinations вказують на один адрес, щоб не змінювати appsettings.json.
+      # В Azure - один внутрішній endpoint cms-service; Azure сам балансує між репліками.
+      # Обидва YARP-destinations вказують на одину адресу, щоб не змінювати appsettings.json.
       env {
         name  = "ReverseProxy__Clusters__cmsCluster__Destinations__node1__Address"
         value = "http://cms-service"

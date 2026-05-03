@@ -165,7 +165,7 @@ export const ContentList = () => {
                                         </a>
                                     </Tooltip>
                                 ) : (
-                                    <span className="no-image">—</span>
+                                    <span className="no-image">-</span>
                                 )}
                             </TableCell>
                             <TableCell>{new Date(item.createdAt).toLocaleString()}</TableCell>
