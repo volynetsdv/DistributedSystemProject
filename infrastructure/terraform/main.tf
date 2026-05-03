@@ -78,20 +78,30 @@ resource "azurerm_storage_container" "media" {
 # В цьому demo використовується один Burstable-сервер для обох з'єднань.
 # Це дозволяє демонструвати IaC та round-robin балансування без додаткових витрат.
 
-# для можливості горизонтального масштабування
-resource "azurerm_app_configuration_key" "replica_endpoints" {
-  configuration_store_id = azurerm_app_configuration.appconf.id
-  key                    = "Database:ReplicaEndpoints"
-  # Ми збираємо всі FQDN реплік у один рядок через кому
-  # value                  = join(",", azurerm_postgresql_flexible_server.replicas[*].fqdn)
-  value                  = azurerm_postgresql_flexible_server.main.fqdn
-}
-
 resource "azurerm_app_configuration" "appconf" {
   name                = "cms-appconfig-${random_string.suffix.result}"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   sku                 = "standard"
+}
+
+# azurerm_app_configuration_key використовує data plane API, тому потрібна
+# окрема RBAC-роль - звичайних ARM-прав (Contributor) недостатньо.
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_role_assignment" "appconf_dataowner" {
+  scope                = azurerm_app_configuration.appconf.id
+  role_definition_name = "App Configuration Data Owner"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+# для можливості горизонтального масштабування
+resource "azurerm_app_configuration_key" "replica_endpoints" {
+  configuration_store_id = azurerm_app_configuration.appconf.id
+  key                    = "Database:ReplicaEndpoints"
+  value                  = azurerm_postgresql_flexible_server.main.fqdn
+
+  depends_on = [azurerm_role_assignment.appconf_dataowner]
 }
 
 resource "azurerm_postgresql_flexible_server" "main" {
