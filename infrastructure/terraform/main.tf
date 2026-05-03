@@ -79,19 +79,19 @@ resource "azurerm_storage_container" "media" {
 # Це дозволяє демонструвати IaC та round-robin балансування без додаткових витрат.
 
 # для можливості горизонтального масштабування
+resource "azurerm_app_configuration_key" "replica_endpoints" {
+  configuration_store_id = azurerm_app_configuration.appconf.id
+  key                    = "Database:ReplicaEndpoints"
+  # Ми збираємо всі FQDN реплік у один рядок через кому
+  # value                  = join(",", azurerm_postgresql_flexible_server.replicas[*].fqdn)
+  value                  = azurerm_postgresql_flexible_server.main.fqdn
+}
+
 resource "azurerm_app_configuration" "appconf" {
   name                = "cms-appconfig-${random_string.suffix.result}"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   sku                 = "standard"
-}
-
-resource "azurerm_app_configuration_key" "replica_endpoints" {
-  configuration_store_id = azurerm_app_configuration.main.id
-  key                    = "Database:ReplicaEndpoints"
-  # Ми збираємо всі FQDN реплік у один рядок через кому
-  # value                  = join(",", azurerm_postgresql_flexible_server.replicas[*].fqdn)
-  value                  = azurerm_postgresql_flexible_server.main.fqdn
 }
 
 resource "azurerm_postgresql_flexible_server" "main" {
