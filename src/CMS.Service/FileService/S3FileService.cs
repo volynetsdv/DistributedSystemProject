@@ -9,7 +9,26 @@ public class S3FileService(IAmazonS3 s3Client, IConfiguration config) : IFileSer
     {
         // Створюємо Bucket, якщо його немає (тільки для розробки)
         if(!await AmazonS3Util.DoesS3BucketExistV2Async(s3Client, _bucketName))
+        {
             await s3Client.PutBucketAsync(_bucketName);
+            var readOnlyPolicy = $@"{{
+                ""Version"": ""2012-10-17"",
+                ""Statement"": [
+                    {{
+                        ""Sid"": ""PublicRead"",
+                        ""Effect"": ""Allow"",
+                        ""Principal"": ""*"",
+                        ""Action"": [""s3:GetObject""],
+                        ""Resource"": [""arn:aws:s3:::{_bucketName}/*""]
+                    }}
+                ]
+            }}";
+            await s3Client.PutBucketPolicyAsync(new Amazon.S3.Model.PutBucketPolicyRequest
+            {
+                BucketName = _bucketName,
+                Policy = readOnlyPolicy
+            });
+        }
 
         var fileKey = $"{Guid.NewGuid()}_{file.FileName}";
         
@@ -23,8 +42,9 @@ public class S3FileService(IAmazonS3 s3Client, IConfiguration config) : IFileSer
         };
 
         await s3Client.PutObjectAsync(putRequest);
+
+        var requestUrl = $"{config["S3:ServiceURL"]}/{_bucketName}/{fileKey}";
         
-        // Повертаємо шлях до файлу (для локальної розробки це буде внутрішня адреса)
-        return fileKey;
+        return requestUrl.Replace("http://minio:9000", "http://localhost:9000");
     }
 }

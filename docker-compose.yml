@@ -80,7 +80,6 @@ services:
   storage:
     image: minio/minio:latest
     container_name: minio
-    profiles: ["storage-infra"]
     command: server /data --console-address ":9001"
     environment:
       - MINIO_ROOT_USER=admin
